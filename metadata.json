@@ -1,0 +1,10 @@
+{
+  "name": "Remix Main ABC DEF PG Management System",
+  "description": "Mobile-first standalone PG management system for room \u0026 bed allocation, resident onboarding, partial payments, and storage tracking.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
