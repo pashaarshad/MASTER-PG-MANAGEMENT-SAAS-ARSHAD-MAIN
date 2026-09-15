@@ -39,6 +39,7 @@ async function safeFetch<T = any>(url: string, options?: RequestInit, timeoutMs 
 
   try {
     const res = await fetch(url, {
+      cache: 'no-store',
       ...options,
       signal: options?.signal || controller.signal,
     });
@@ -103,11 +104,11 @@ export const api = {
     return !!json?.success;
   },
 
-  async addFloor(buildingId: string, name: string): Promise<Floor | null> {
+  async addFloor(buildingId: string, name: string, id?: string): Promise<Floor | null> {
     const json = await safeFetch<any>('/api/floors', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ buildingId, name }),
+      body: JSON.stringify({ id, buildingId, name }),
     });
     return json?.success ? json.floor : null;
   },

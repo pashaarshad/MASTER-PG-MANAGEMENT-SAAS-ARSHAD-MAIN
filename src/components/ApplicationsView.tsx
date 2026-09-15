@@ -127,17 +127,7 @@ export const ApplicationsView: React.FC = () => {
 
   const getAvailableRoomsForFloor = (fId: string, bId: string) => {
     const availableRooms = rooms.filter((r) => r.beds && r.beds.some((b) => b.status === 'Available'));
-    
-    // 1. Exact, name, or room-prefix match on selected floor & building
-    const exactMatches = availableRooms.filter((r) => isFloorMatch(r, fId, bId));
-    if (exactMatches.length > 0) return exactMatches;
-
-    // 2. Building match fallback
-    const buildingMatches = availableRooms.filter((r) => !r.buildingId || r.buildingId === bId);
-    if (buildingMatches.length > 0) return buildingMatches;
-
-    // 3. Ultimate fallback: All available rooms in system
-    return availableRooms;
+    return availableRooms.filter((r) => isFloorMatch(r, fId, bId));
   };
 
   // Setup initial room and bed options when approving

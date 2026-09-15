@@ -531,6 +531,7 @@ app.post('/api/rooms', async (req, res) => {
       timestamp: new Date().toISOString(),
     });
 
+    broadcastRealtime('ROOM_CREATED', { room });
     res.json({ success: true, room });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -541,6 +542,7 @@ app.put('/api/rooms/:id', async (req, res) => {
   try {
     const updates = req.body;
     const room = await RoomModel.findOneAndUpdate({ id: req.params.id }, updates, { new: true });
+    broadcastRealtime('ROOM_UPDATED', { room });
     res.json({ success: true, room });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -554,10 +556,11 @@ app.delete('/api/rooms/:id', async (req, res) => {
 
     const hasOccupants = room.beds?.some((b: any) => b.status === 'Occupied');
     if (hasOccupants) {
-      return res.status(400).json({ success: false, error: 'Cannot delete room with active occupants.' });
+      return res.status(400).json({ success: false, error: 'Cannot delete room with occupied beds.' });
     }
 
     await RoomModel.deleteOne({ id: req.params.id });
+    broadcastRealtime('ROOM_DELETED', { id: req.params.id });
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });

@@ -222,15 +222,33 @@ export const RoomsView: React.FC = () => {
 
   const handleRoomNumberChange = (val: string) => {
     setNewRoomNumber(val);
+    const clean = val.trim();
+    if (!clean) return;
+
+    if (/^g/i.test(clean)) {
+      setSelectedFloorName('Ground Floor');
+    } else {
+      const match = clean.match(/^(\d)/);
+      if (match) {
+        const floorDigit = match[1];
+        if (floorDigit === '1') setSelectedFloorName('1st Floor');
+        else if (floorDigit === '2') setSelectedFloorName('2nd Floor');
+        else if (floorDigit === '3') setSelectedFloorName('3rd Floor');
+        else if (floorDigit === '4') setSelectedFloorName('4th Floor');
+        else if (floorDigit === '5') setSelectedFloorName('5th Floor');
+        else if (floorDigit === '6') setSelectedFloorName('6th Floor');
+      }
+    }
   };
 
   // Helper to get or create floor ID
   const resolveFloorId = (buildingId: string, floorName: string): string => {
+    const cleanName = floorName.trim();
     const existing = floors.find(
-      (f) => f.buildingId === buildingId && f.name.toLowerCase() === floorName.toLowerCase()
+      (f) => f.buildingId === buildingId && f.name.toLowerCase() === cleanName.toLowerCase()
     );
     if (existing) return existing.id;
-    return addFloor(buildingId, floorName);
+    return addFloor(buildingId, cleanName);
   };
 
   // New building form

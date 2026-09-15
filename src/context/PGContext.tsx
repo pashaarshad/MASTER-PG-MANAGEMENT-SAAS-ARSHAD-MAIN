@@ -642,11 +642,17 @@ export const PGProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   };
 
   const addFloor = (buildingId: string, name: string): string => {
+    const cleanName = (name || '').trim();
+    const existing = floors.find(
+      (f) => f.buildingId === buildingId && f.name.toLowerCase() === cleanName.toLowerCase()
+    );
+    if (existing) return existing.id;
+
     const id = `flr-${Date.now()}`;
     const count = floors.filter((f) => f.buildingId === buildingId).length;
-    setFloors((prev) => [...prev, { id, buildingId, name, order: count }]);
-    api.addFloor(buildingId, name);
-    logAudit('FLOOR_CREATED', name, `Added floor to building`);
+    setFloors((prev) => [...prev, { id, buildingId, name: cleanName, order: count }]);
+    api.addFloor(buildingId, cleanName, id);
+    logAudit('FLOOR_CREATED', cleanName, `Added floor to building`);
     return id;
   };
 
