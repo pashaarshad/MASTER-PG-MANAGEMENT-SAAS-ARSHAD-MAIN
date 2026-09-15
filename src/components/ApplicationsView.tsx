@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileCheck,
   CheckCircle2,
@@ -35,7 +35,13 @@ export const ApplicationsView: React.FC = () => {
     requestCorrection,
     selectedApplicationId,
     setSelectedApplicationId,
+    refreshData,
   } = usePG();
+
+  // Refresh latest database data when view mounts or actions occur
+  useEffect(() => {
+    refreshData(false);
+  }, [refreshData]);
 
   const [activeTab, setActiveTab] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'>('PENDING');
 
@@ -69,8 +75,75 @@ export const ApplicationsView: React.FC = () => {
 
   const activeApp = applications.find((a) => a.id === selectedApplicationId) || null;
 
+  // Helper to match rooms to floor reliably (by ID, Name, floor object, or room prefix)
+  const isFloorMatch = (room: Room, targetFloorId: string, targetBuildingId: string) => {
+    if (room.buildingId && targetBuildingId && room.buildingId !== targetBuildingId) {
+      return false;
+    }
+    if (!targetFloorId || targetFloorId === 'ALL') return true;
+    if (room.floorId === targetFloorId) return true;
+
+    const targetFloorObj = floors.find((f) => f.id === targetFloorId);
+    const roomFloorIdLower = (room.floorId || '').toLowerCase();
+    const rNumLower = (room.roomNumber || '').toLowerCase();
+
+    if (targetFloorObj) {
+      const targetNameLower = targetFloorObj.name.toLowerCase();
+
+      if (room.floorId === targetFloorObj.id || roomFloorIdLower === targetNameLower) {
+        return true;
+      }
+
+      // Check floor name text & room prefix matching
+      if (
+        (targetNameLower.includes('ground') || targetNameLower.includes('flr-g') || targetNameLower.includes('flr-0')) &&
+        (roomFloorIdLower.includes('ground') || roomFloorIdLower.includes('flr-g') || roomFloorIdLower.includes('flr-0') || rNumLower.startsWith('g'))
+      ) {
+        return true;
+      }
+
+      if (
+        (targetNameLower.includes('1st') || targetNameLower.includes('floor 1')) &&
+        (roomFloorIdLower.includes('1st') || roomFloorIdLower.includes('flr-1') || rNumLower.startsWith('1'))
+      ) {
+        return true;
+      }
+
+      if (
+        (targetNameLower.includes('2nd') || targetNameLower.includes('floor 2')) &&
+        (roomFloorIdLower.includes('2nd') || roomFloorIdLower.includes('flr-2') || rNumLower.startsWith('2'))
+      ) {
+        return true;
+      }
+    }
+
+    const roomFloorObj = floors.find((f) => f.id === room.floorId);
+    if (roomFloorObj && targetFloorObj && roomFloorObj.name.toLowerCase() === targetFloorObj.name.toLowerCase()) {
+      return true;
+    }
+
+    return false;
+  };
+
+  const getAvailableRoomsForFloor = (fId: string, bId: string) => {
+    const availableRooms = rooms.filter((r) => r.beds && r.beds.some((b) => b.status === 'Available'));
+    
+    // 1. Exact, name, or room-prefix match on selected floor & building
+    const exactMatches = availableRooms.filter((r) => isFloorMatch(r, fId, bId));
+    if (exactMatches.length > 0) return exactMatches;
+
+    // 2. Building match fallback
+    const buildingMatches = availableRooms.filter((r) => !r.buildingId || r.buildingId === bId);
+    if (buildingMatches.length > 0) return buildingMatches;
+
+    // 3. Ultimate fallback: All available rooms in system
+    return availableRooms;
+  };
+
   // Setup initial room and bed options when approving
-  const handleOpenApproveModal = (app: ResidentApplication) => {
+  const handleOpenApproveModal = async (app: ResidentApplication) => {
+    // Refresh latest database data before showing modal
+    refreshData(false);
     setApprovingApp(app);
     const bId = buildings[0]?.id || '';
     setSelectedBuildingId(bId);
@@ -79,9 +152,8 @@ export const ApplicationsView: React.FC = () => {
     const fId = bFloors[0]?.id || '';
     setSelectedFloorId(fId);
 
-    // Find first room with available bed on this floor
-    const bRooms = rooms.filter((r) => r.floorId === fId && r.beds.some((b) => b.status === 'Available'));
-    const rId = bRooms[0]?.id || rooms.filter((r) => r.floorId === fId)[0]?.id || '';
+    const availRooms = getAvailableRoomsForFloor(fId, bId);
+    const rId = availRooms[0]?.id || '';
     setSelectedRoomId(rId);
 
     const targetRoom = rooms.find((r) => r.id === rId);
@@ -118,9 +190,7 @@ export const ApplicationsView: React.FC = () => {
   };
 
   // Rooms for selected floor that have at least one available bed
-  const eligibleRooms = selectedFloorId
-    ? rooms.filter((r) => r.floorId === selectedFloorId && r.beds.some((b) => b.status === 'Available'))
-    : rooms.filter((r) => r.buildingId === selectedBuildingId && r.beds.some((b) => b.status === 'Available'));
+  const eligibleRooms = getAvailableRoomsForFloor(selectedFloorId, selectedBuildingId);
 
   const currentSelectedRoom = rooms.find((r) => r.id === selectedRoomId);
   const eligibleBeds = currentSelectedRoom?.beds.filter((b) => b.status === 'Available') || [];
@@ -334,8 +404,7 @@ export const ApplicationsView: React.FC = () => {
                       const bFloors = floors.filter((f) => f.buildingId === newBId);
                       const newFId = bFloors[0]?.id || '';
                       setSelectedFloorId(newFId);
-                      // Auto-select first available room on this floor
-                      const fRooms = rooms.filter((r) => r.floorId === newFId && r.beds.some((b) => b.status === 'Available'));
+                      const fRooms = getAvailableRoomsForFloor(newFId, newBId);
                       const newRId = fRooms[0]?.id || '';
                       setSelectedRoomId(newRId);
                       const targetRoom = rooms.find((r) => r.id === newRId);
@@ -359,8 +428,7 @@ export const ApplicationsView: React.FC = () => {
                     onChange={(e) => {
                       const newFId = e.target.value;
                       setSelectedFloorId(newFId);
-                      // Auto-select first room with available bed on this floor
-                      const fRooms = rooms.filter((r) => r.floorId === newFId && r.beds.some((b) => b.status === 'Available'));
+                      const fRooms = getAvailableRoomsForFloor(newFId, selectedBuildingId);
                       const newRId = fRooms[0]?.id || '';
                       setSelectedRoomId(newRId);
                       const targetRoom = rooms.find((r) => r.id === newRId);
