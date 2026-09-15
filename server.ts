@@ -464,10 +464,18 @@ app.delete('/api/buildings/:id', async (req, res) => {
 
 app.post('/api/floors', async (req, res) => {
   try {
-    const { buildingId, name } = req.body;
-    const id = `flr-${Date.now()}`;
+    const { id: clientFloorId, buildingId, name } = req.body;
+    const cleanName = (name || '').trim();
+    // Check if floor with same name already exists in this building
+    const existing = await FloorModel.findOne({ buildingId, name: cleanName }).lean();
+    if (existing) {
+      return res.json({ success: true, floor: existing });
+    }
+
+    const id = clientFloorId || `flr-${Date.now()}`;
     const count = await FloorModel.countDocuments({ buildingId });
-    const floor = await FloorModel.create({ id, buildingId, name, order: count });
+    const floor = await FloorModel.create({ id, buildingId, name: cleanName, order: count });
+    broadcastRealtime('FLOOR_CREATED', { floor });
     res.json({ success: true, floor });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
